@@ -1,0 +1,47 @@
+import json
+import boto3
+import xlrd
+import io
+import csv
+from datetime import datetime
+
+
+def lambda_handler(event, context):
+    s3 = boto3.client("s3")
+    s3_resource = boto3.resource("s3")
+    if event:
+        s3_everec = event["Records"][0]
+        bucket_name = str(s3_everec["s3"]["bucket"]["name"])
+        file_name = str(s3_everec["s3"]["object"]["key"])
+        file_obj = s3.get_object(Bucket=bucket_name, Key=file_name)
+        file_content = file_obj["Body"].read()
+        read_excel_data = io.BytesIO(file_content)
+        book = xlrd.open_workbook(file_contents=read_excel_data.read(),encoding_override="utf_16_le")
+        #Set the encoding accroding to the requirement,changin the above line.
+        sheet = book.sheet_by_name('Sheet1')
+        file_path="/tmp/"+file_name
+        file_path=str(file_path)
+        csvfile = open(file_path, 'w')
+        wr = csv.writer(csvfile)
+        for rownum in range(sheet.nrows):
+            # date = sheet.row_values(rownum)[0] #Here 0 represent the Excel column where the date format is present.
+            # if isinstance( date, float) or isinstance( date, int ):
+            #     year, month, day, hour, minute, sec = xlrd.xldate_as_tuple(date, book.datemode)
+            #     py_date = "%04d-%02d-%02d" % (year,month, day)
+            #     wr.writerow([py_date] + sheet.row_values(rownum)[1:])
+            # else:
+            #     wr.writerow(sheet.row_values(rownum))
+            wr.writerow(sheet.row_values(rownum))
+  #For raw date format issue to be resolved un-comment line 27-33 and comment line 34. 
+        csvfile.close()
+        file_name_csv=file_name.partition('.')
+        file_name_csv=file_name_csv[0]
+        file_name_csv=str(file_name_csv)+'.csv'
+        file_name_csv=str(file_name_csv)
+        s3_resource.Bucket("101buckets3").upload_file(file_path, file_name_csv)
+        #Replace the S3 bucket name with the bucket name where converted files are placed.Here it is "101buckets3".
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from Lambda!')
+    }
